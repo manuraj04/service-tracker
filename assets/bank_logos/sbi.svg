@@ -1,0 +1,8 @@
+// This is a placeholder SVG for testing. 
+// Please replace with actual bank logos.
+const String sbiLogoSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#2d4c9c"/>
+  <text x="100" y="120" font-family="Arial" font-size="60" fill="white" text-anchor="middle">SBI</text>
+</svg>
+''';

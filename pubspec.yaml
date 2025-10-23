@@ -1,0 +1,48 @@
+name: service_engineer_tracker
+description: A Flutter app to track service visits and machine maintenance.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Database
+  sqflite: ^2.3.0
+  path_provider: ^2.1.5
+  path: ^1.8.3
+
+  # Google Calendar Integration
+  google_sign_in: ^6.1.6
+  googleapis: ^12.0.0
+  googleapis_auth: ^1.4.1
+  extension_google_sign_in_as_googleapis_auth: ^2.0.12 # Helper for auth
+  http: ^1.0.0
+
+  # UI & Utils
+  intl: ^0.20.2
+  google_fonts: ^6.3.2
+  shared_preferences: ^2.5.3
+  excel: ^4.0.6
+  pdf: ^3.11.3
+  cached_network_image: ^3.3.0
+  firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
+  cloud_firestore: ^6.0.3
+  connectivity_plus: ^7.0.0
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/bank_logos/
