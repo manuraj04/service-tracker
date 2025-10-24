@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEngineer() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/engineers/$(request.auth.uid));
+    }
+
+    // Banks collection - existing rules
+    match /banks/{bankId} {
+      allow read: if isSignedIn();
+      allow write: if isEngineer();
+      
+      match /machines/{machineId} {
+        allow read: if isSignedIn();
+        allow write: if isEngineer();
+      }
+    }
+
+    // Service Visits collection
+    match /service_visits/{visitId} {
+      allow read: if isSignedIn();
+      allow create: if isEngineer();
+      allow update, delete: if isEngineer() && 
+        resource.data.engineerId == request.auth.uid;
+    }
+
+    // Engineers collection
+    match /engineers/{engineerId} {
+      allow read: if isSignedIn();
+      allow create: if isEngineer();
+      allow update: if isEngineer() && 
+        (engineerId == request.auth.uid || request.resource.data.activeStatus == resource.data.activeStatus);
+      allow delete: if false; // Prevent engineer deletion, only deactivate
+    }
+
+    // Service Reports collection
+    match /service_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isEngineer();
+      allow update: if isEngineer() && 
+        exists(/databases/$(database)/documents/service_visits/$(resource.data.visitId)) &&
+        get(/databases/$(database)/documents/service_visits/$(resource.data.visitId)).data.engineerId == request.auth.uid;
+      allow delete: if false; // Prevent report deletion for audit purposes
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && 
+        resource.data.recipientId == request.auth.uid;
+      allow create: if isEngineer();
+      allow update: if isSignedIn() && 
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt', 'status']);
+      allow delete: if false; // Prevent notification deletion
+    }
+
+    // Spare Parts Inventory collection
+    match /spare_parts_inventory/{partId} {
+      allow read: if isSignedIn();
+      allow create, update: if isEngineer();
+      allow delete: if false; // Prevent parts deletion, only update stock to 0
+    }
+
+    // Activity Logs collection (existing)
+    match /activity_logs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isEngineer();
+      allow update, delete: if false; // Immutable logs
+    }
+  }
+}

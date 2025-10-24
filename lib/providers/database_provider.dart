@@ -24,20 +24,18 @@ final allMachinesProvider = StateNotifierProvider<AllMachinesNotifier, AsyncValu
 });
 
 class BankListNotifier extends StateNotifier<AsyncValue<List<BankEntry>>> {
-  BankListNotifier(this._ref) : super(const AsyncValue.loading()) {
+  BankListNotifier(Ref ref) : super(const AsyncValue.loading()) {
     _loadBanks();
     _setupFirebaseSync();
   }
 
-  final Ref _ref;
   final _db = AppDatabase.instance;
   final _firebase = FirebaseService.instance;
   StreamSubscription<List<BankEntry>>? _firebaseSub;
 
   void _setupFirebaseSync() {
     if (_firebase.isInitialized) {
-      _ref.read(firebaseStatusProvider.notifier).state = true;
-      // Initialize SyncManager
+      // Initialize SyncManager without modifying other providers
       SyncManager.instance.initialize().then((_) {
         print('SyncManager initialized successfully');
       }).catchError((e) {

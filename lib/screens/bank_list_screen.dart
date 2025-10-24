@@ -50,41 +50,79 @@ class _BankListScreenState extends ConsumerState<BankListScreen> {
                     final bank = filtered[index];
                     return Card(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
-                            leading: CircleAvatar(backgroundColor: Theme.of(context).colorScheme.primary, child: const Icon(Icons.account_balance, color: Colors.white)),
-                            title: Text(bank.bankName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            subtitle: Text(bank.branchName),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.list, size: 20),
-                                  tooltip: 'Machines',
-                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MachineListScreen(bank: bank))),
-                                ),
-                            IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
-                                  tooltip: 'Edit Bank',
-                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditBankScreen(bank: bank))),
-                                ),
-                            IconButton(
-                                  icon: const Icon(Icons.delete_forever, size: 20, color: Colors.redAccent),
-                                  tooltip: 'Delete Bank',
-                                  onPressed: () async {
-                                    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('Delete bank?'), content: Text('Delete ${bank.bankName} - ${bank.branchName}? This will remove associated machines.'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete'))]));
-                                    if (ok == true) {
-                                      try {
-                                        await ref.read(bankListProvider.notifier).deleteBank(bank.id!);
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bank deleted')));
-                                        }
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                                        }
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(context).colorScheme.primary, 
+                              child: const Icon(Icons.account_balance, color: Colors.white, size: 20)
+                            ),
+                            title: Text(bank.bankName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                            subtitle: Text(bank.branchName, style: const TextStyle(fontSize: 12)),
+                            trailing: PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              padding: EdgeInsets.zero,
+                              onSelected: (value) async {
+                                if (value == 'machines') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => MachineListScreen(bank: bank)));
+                                } else if (value == 'edit') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditBankScreen(bank: bank)));
+                                } else if (value == 'delete') {
+                                  final ok = await showDialog<bool>(
+                                    context: context, 
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Delete bank?'), 
+                                      content: Text('Delete ${bank.bankName} - ${bank.branchName}? This will remove associated machines.'), 
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), 
+                                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red)))
+                                      ]
+                                    )
+                                  );
+                                  if (ok == true) {
+                                    try {
+                                      await ref.read(bankListProvider.notifier).deleteBank(bank.id!);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bank deleted')));
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                                       }
                                     }
-                                  },
+                                  }
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'machines',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.list, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('View Machines'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Edit Bank'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_forever, size: 18, color: Colors.redAccent),
+                                      SizedBox(width: 8),
+                                      Text('Delete Bank', style: TextStyle(color: Colors.redAccent)),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

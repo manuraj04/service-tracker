@@ -22,7 +22,6 @@ class _AddEditBankScreenState extends ConsumerState<AddEditBankScreen> {
   late TextEditingController _contactNameController;
   late TextEditingController _contactPhoneController;
   late TextEditingController _addressController;
-  final bool _isSearchingBranch = false;
 
   @override
   void initState() {

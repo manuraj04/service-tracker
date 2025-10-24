@@ -7,6 +7,7 @@ class BankEntry {
   final String? contactName;
   final String? contactPhone;
   final String? address;
+  final DateTime addedDate;
 
   BankEntry({
     this.id,
@@ -17,7 +18,8 @@ class BankEntry {
     this.contactName,
     this.contactPhone,
     this.address,
-  });
+    DateTime? addedDate,
+  }) : addedDate = addedDate ?? DateTime.now();
 
   BankEntry copyWith({
     int? id,
@@ -48,6 +50,9 @@ class BankEntry {
       branchName: map['branchName'] as String? ?? '',
       branchCode: map['branchCode'] as String?,
       ifscCode: map['ifscCode'] as String?,
+      addedDate: map['addedDate'] != null 
+          ? DateTime.parse(map['addedDate'] as String)
+          : DateTime.now(),
       contactName: map['contactName'] as String?,
       contactPhone: map['contactPhone'] as String?,
       address: map['address'] as String?,
@@ -63,6 +68,7 @@ class BankEntry {
       'contactName': contactName,
       'contactPhone': contactPhone,
       'address': address,
+      'addedDate': addedDate.toIso8601String(),
     };
     if (id != null) map['id'] = id;
     return map;

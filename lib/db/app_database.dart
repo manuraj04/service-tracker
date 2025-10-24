@@ -23,7 +23,7 @@ class AppDatabase {
     final dbPath = join(documentsDirectory.path, fileName);
     return await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onConfigure: (db) async {
         // Enable foreign key constraints
         await db.execute('PRAGMA foreign_keys = ON');
@@ -37,6 +37,9 @@ class AppDatabase {
     if (oldVersion < 2) {
       await _v2AddBranchDetails(db);
     }
+    if (oldVersion < 3) {
+      await _v3EnsureAddedDateColumn(db);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -44,34 +47,50 @@ class AppDatabase {
     if (version >= 2) {
       await _v2AddBranchDetails(db);
     }
+    if (version >= 3) {
+      await _v3EnsureAddedDateColumn(db);
+    }
   }
 
   Future _v1CreateTables(Database db) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
-    const intType = 'INTEGER NOT NULL';
     const textType = 'TEXT NOT NULL';
+    const dateType = 'TEXT NOT NULL';
+    const intType = 'INTEGER NOT NULL';
 
+    // Create banks table
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS banks (
-        id $idType,
-        bankName $textType,
-        branchName $textType
-      );
+    CREATE TABLE IF NOT EXISTS banks (
+      id $idType,
+      bankName $textType,
+      branchName $textType,
+      addedDate $dateType
+    )
     ''');
 
+    // Create machines table
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS machines (
-        id $idType,
-        bankId INTEGER NOT NULL,
-        machineType $textType,
-        serialNumber $textType,
-        lastVisitDate $intType,
-        nextVisitDate $intType,
-        installationDate $intType,
-        isCsrCollected $intType,
-        FOREIGN KEY (bankId) REFERENCES banks(id) ON DELETE CASCADE
-      );
+    CREATE TABLE IF NOT EXISTS machines (
+      id $idType,
+      bankId INTEGER NOT NULL,
+      machineType $textType,
+      serialNumber $textType,
+      lastVisitDate $intType,
+      nextVisitDate $intType,
+      installationDate $intType,
+      isCsrCollected INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (bankId) REFERENCES banks(id) ON DELETE CASCADE
+    )
     ''');
+  }
+
+  Future<int> insertBank(BankEntry bank) async {
+    final db = await instance.database;
+    return db.insert('banks', {
+      'bankName': bank.bankName,
+      'branchName': bank.branchName,
+      'addedDate': DateTime.now().toIso8601String(),
+    });
   }
 
   Future _v2AddBranchDetails(Database db) async {
@@ -110,6 +129,17 @@ class AppDatabase {
     await db.execute('ALTER TABLE banks ADD COLUMN contactName $nullableText;');
     await db.execute('ALTER TABLE banks ADD COLUMN contactPhone $nullableText;');
     await db.execute('ALTER TABLE banks ADD COLUMN address $nullableText;');
+  }
+
+  Future _v3EnsureAddedDateColumn(Database db) async {
+    // Check if addedDate column exists, if not add it with default value
+    const dateType = 'TEXT NOT NULL DEFAULT \'2024-01-01T00:00:00.000\'';
+    try {
+      await db.execute('ALTER TABLE banks ADD COLUMN addedDate $dateType;');
+    } catch (e) {
+      // Column might already exist, ignore error
+      print('addedDate column may already exist: $e');
+    }
   }
 
   // Bank CRUD

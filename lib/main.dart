@@ -39,7 +39,7 @@ class ServiceEngineerTrackerApp extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
 
     return MaterialApp(
-      title: 'Service Engineer Tracker',
+      title: 'Service Tracker',
       themeMode: themeMode,
       theme: lightTheme,
       darkTheme: darkTheme,

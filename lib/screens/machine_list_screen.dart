@@ -46,29 +46,36 @@ class MachineListScreen extends ConsumerWidget {
                       m.machineType,
                       style: const TextStyle(fontWeight: FontWeight.w600)
                     ),
-                    subtitle: Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Chip(
-                          label: Text(
-                            'Next: ${DateFormat.yMMMd().format(m.nextVisitDate)}'
+                        Text(
+                          'Next: ${DateFormat.yMMMd().format(m.nextVisitDate)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                         ),
                         if (m.isCsrCollected)
-                          const Chip(
-                            label: Text('CSR ✓'),
-                            backgroundColor: Colors.greenAccent
+                          const Text(
+                            'CSR ✓',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                       ],
                     ),
-                    trailing: Column(
+                    trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit, size: 20),
-                          tooltip: 'Edit Machine',
+                          tooltip: 'Edit',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -79,9 +86,12 @@ class MachineListScreen extends ConsumerWidget {
                             )
                           ),
                         ),
+                        const SizedBox(width: 4),
                         IconButton(
-                          icon: const Icon(Icons.info_outline, size: 20),
+                          icon: const Icon(Icons.arrow_forward_ios, size: 16),
                           tooltip: 'Details',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(

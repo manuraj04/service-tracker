@@ -3,6 +3,7 @@ import 'package:excel/excel.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import '../models/bank.dart';
 import '../models/machine.dart';
@@ -22,9 +23,30 @@ class ExportService {
   ];
 
   static Future<String> _getOutputFile(String fileName) async {
-    final dir = await getExternalStorageDirectory();
-    if (dir == null) throw Exception('Could not access external storage');
-    return '${dir.path}/$fileName';
+    // Request storage permission
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        // Try manageExternalStorage for Android 11+
+        final manageStatus = await Permission.manageExternalStorage.request();
+        if (!manageStatus.isGranted) {
+          throw Exception('Storage permission denied');
+        }
+      }
+    }
+    
+    // For Android, save to Downloads folder
+    if (Platform.isAndroid) {
+      final directory = Directory('/storage/emulated/0/Download');
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+      return '${directory.path}/$fileName';
+    } else {
+      // For other platforms, use documents directory
+      final dir = await getApplicationDocumentsDirectory();
+      return '${dir.path}/$fileName';
+    }
   }
 
   static Future<String> exportToExcel({

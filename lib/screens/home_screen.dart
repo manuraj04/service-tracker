@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/theme_service.dart';
 import '../services/auth_service.dart';
 import '../services/export_service.dart';
+import '../models/machine.dart';
 import 'bank_list_screen.dart';
 import 'bank_selection_screen.dart';
 import 'upcoming_visits_screen.dart';
+import 'csr_status_screen.dart';
 import '../services/firestore_sync_service.dart';
 import '../db/app_database.dart';
 
@@ -18,7 +23,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Service Engineer Tracker'),
+        title: const Text('Service Tracker'),
         actions: [
           IconButton(
             icon: Icon(
@@ -102,12 +107,15 @@ class HomeScreen extends ConsumerWidget {
                       _HomeTile(
                         icon: Icons.assignment_turned_in,
                         label: 'CSR Status',
-                        onTap: () => _showCsrStatusReport(context),
+                        onTap: () => Navigator.push(
+                          context, 
+                          MaterialPageRoute(builder: (_) => const CsrStatusScreen()),
+                        ),
                       ),
                       _HomeTile(
                         icon: Icons.share,
                         label: 'Share App',
-                        onTap: () {},
+                        onTap: () => _shareApp(context),
                       ),
                     ],
                   );
@@ -230,55 +238,142 @@ class HomeScreen extends ConsumerWidget {
         const SnackBar(content: Text('Preparing export...')),
       );
 
+      // Fetch data from database
+      final db = AppDatabase.instance;
+      final banks = await db.getAllBanks();
+      final allMachines = <Machine>[];
+      
+      for (final bank in banks) {
+        final machines = await db.getMachinesByBank(bank.id!);
+        allMachines.addAll(machines);
+      }
+
       final filePath = isExcel
           ? await ExportService.exportToExcel(
-              banks: [], // TODO: Get from database
-              machines: [], // TODO: Get from database
+              banks: banks,
+              machines: allMachines,
               filter: filter,
             )
           : await ExportService.exportToPdf(
-              banks: [], // TODO: Get from database
-              machines: [], // TODO: Get from database
+              banks: banks,
+              machines: allMachines,
               filter: filter,
             );
 
       if (context.mounted) {
+        // Extract just the filename from the full path
+        final fileName = filePath.split('/').last;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('File saved to: $filePath'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Export successful!',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Saved to Downloads/$fileName',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
             action: SnackBarAction(
               label: 'OPEN',
-              onPressed: () {
-                // TODO: Open file using platform-specific method
+              onPressed: () async {
+                try {
+                  final result = await OpenFile.open(filePath);
+                  if (result.type != ResultType.done && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not open file: ${result.message}')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error opening file: $e')),
+                    );
+                  }
+                }
               },
             ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 6),
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
+        final errorMessage = e.toString().contains('permission') 
+          ? 'Storage permission required. Please grant storage access in Settings.'
+          : 'Export failed: $e';
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: e.toString().contains('permission') 
+              ? SnackBarAction(
+                  label: 'SETTINGS',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    await openAppSettings();
+                  },
+                )
+              : null,
+          ),
         );
       }
     }
   }
 
-  void _showCsrStatusReport(BuildContext context) {
-    // TODO: Implement CSR status report screen
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('CSR Status Report'),
-        content: const Text('This feature is coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+  void _shareApp(BuildContext context) async {
+    try {
+      await Share.share(
+        'Check out Service Engineer Tracker - A powerful app to track service visits and machine maintenance!\n\n'
+        'Download it now: [Add your app link here]',
+        subject: 'Service Engineer Tracker App',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _checkFirebaseStatus(BuildContext context) async {
+    Navigator.pop(context);
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(const SnackBar(content: Text('Checking Firebase connection...')));
+    
+    try {
+      final isConnected = await FirestoreSyncService.checkConnection();
+      if (context.mounted) {
+        scaffold.showSnackBar(
+          SnackBar(
+            content: Text(
+              isConnected ? 'Firebase connection OK' : 'Firebase connection failed',
+            ),
+            backgroundColor: isConnected ? Colors.green : Colors.red,
           ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        scaffold.showSnackBar(
+          SnackBar(
+            content: Text('Firebase check failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showSettings(BuildContext context) {

@@ -39,7 +39,7 @@ class FirebaseHealthCheck {
       for (final collection in collections) {
         try {
           // Try to get one document to verify read access
-          final query = await db.collection(collection).limit(1).get();
+          await db.collection(collection).limit(1).get();
           status['collections'][collection] = true;
         } catch (e) {
           status['collections'][collection] = false;

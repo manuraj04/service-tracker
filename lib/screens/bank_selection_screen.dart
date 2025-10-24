@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/bank_data.dart';
 import '../models/bank.dart';
 import '../db/app_database.dart';
+import '../data/banks_list.dart';
 
 class BankSelectionScreen extends StatefulWidget {
   const BankSelectionScreen({super.key});
@@ -13,15 +13,7 @@ class BankSelectionScreen extends StatefulWidget {
 class _BankSelectionScreenState extends State<BankSelectionScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedCategory = 'All';
-  final List<String> _categories = [
-    'All',
-    'Public Sector Bank',
-    'Private Sector Bank',
-    'Regional Rural Bank',
-    'Small Finance Bank',
-    'Cooperative Bank',
-  ];
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,46 +21,33 @@ class _BankSelectionScreenState extends State<BankSelectionScreen> {
     super.dispose();
   }
 
-  List<BankData> _getFilteredBanks() {
-    return banks.where((bank) {
-      if (_selectedCategory != 'All' && bank.category != _selectedCategory) {
-        return false;
-      }
-      return bank.searchTerms.any(
-        (term) => term.toLowerCase().contains(_searchQuery.toLowerCase())
-      );
-    }).toList();
+  List<String> _getFilteredBanks() {
+    if (_searchQuery.isEmpty) return kAllBanks;
+    return kAllBanks.where((bank) =>
+      bank.toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList();
   }
 
-  Future<void> _showBranchSelection(BuildContext context, BankData bank) async {
-    final branchName = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => BranchSelectionSheet(bank: bank),
+  Widget _buildBankLogo(String bankName) {
+    // Default fallback logo
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Text(
+          bankName.substring(0, 1),
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
     );
-
-    if (branchName != null && mounted) {
-      // Create new bank entry
-      final newBank = BankEntry(
-        bankName: bank.name,
-        branchName: branchName,
-      );
-
-      try {
-        await AppDatabase.instance.createBank(newBank);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bank added successfully')),
-          );
-          Navigator.pop(context); // Return to previous screen
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
-    }
   }
 
   @override
@@ -76,254 +55,255 @@ class _BankSelectionScreenState extends State<BankSelectionScreen> {
     final filteredBanks = _getFilteredBanks();
     
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Select Bank'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(120),
-          child: Column(
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text('Select Bank', style: Theme.of(context).appBarTheme.titleTextStyle),
+        centerTitle: true,
+      ),
+      body: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Autocomplete<BankData>(
-                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                    return SearchBar(
-                      controller: controller,
-                      focusNode: focusNode,
-                      hintText: 'Search by bank name, code, location...',
-                      leading: const Icon(Icons.search),
-                      trailing: [
-                        if (controller.text.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              controller.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          ),
-                      ],
-                      onChanged: (value) => setState(() => _searchQuery = value),
-                    );
-                  },
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text.isEmpty) {
-                      return const Iterable<BankData>.empty();
-                    }
-                    return banks.where((bank) => 
-                      bank.searchTerms.any((term) => 
-                        term.toLowerCase().contains(textEditingValue.text.toLowerCase())
-                      )
-                    );
-                  },
-                  displayStringForOption: (BankData bank) => bank.name,
-                  optionsViewBuilder: (context, onSelected, options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4.0,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 200),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (context, index) {
-                              final BankData option = options.elementAt(index);
-                              return ListTile(
-                                leading: Image.asset(
-                                  option.logo,
-                                  width: 32,
-                                  height: 32,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.account_balance),
-                                ),
-                                title: Text(option.name),
-                                subtitle: Text('${option.category} • ${option.code}'),
-                                onTap: () {
-                                  onSelected(option);
-                                  setState(() => _searchQuery = option.name);
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose your bank',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24, fontWeight: FontWeight.bold) ?? const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-              ),
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FilterChip(
-                        selected: _selectedCategory == category,
-                        label: Text(category),
-                        onSelected: (selected) {
-                          setState(() => _selectedCategory = selected ? category : 'All');
-                        },
-                      ),
-                    );
-                  },
+                const SizedBox(height: 8),
+                Text(
+                  'Select which bank you have an account with',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 16, color: Theme.of(context).textTheme.bodySmall?.color) ?? const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // Calculate the optimal number of columns based on width
-          int crossAxisCount;
-          if (constraints.maxWidth <= 400) {
-            crossAxisCount = 1; // Single column for very small screens
-          } else if (constraints.maxWidth <= 600) {
-            crossAxisCount = 2;
-          } else if (constraints.maxWidth <= 900) {
-            crossAxisCount = 3;
-          } else {
-            crossAxisCount = 4; // For very large screens
-          }
-
-          // Adjust the aspect ratio based on available width
-          double aspectRatio = constraints.maxWidth > 600 ? 1.1 : 0.85;
-
-          return GridView.builder(
-            padding: EdgeInsets.all(constraints.maxWidth > 600 ? 24 : 16),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              childAspectRatio: aspectRatio,
-              crossAxisSpacing: constraints.maxWidth > 600 ? 24 : 16,
-              mainAxisSpacing: constraints.maxWidth > 600 ? 24 : 16,
+              ],
             ),
-            itemCount: filteredBanks.length,
-            itemBuilder: (context, index) {
-              final bank = filteredBanks[index];
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _showBranchSelection(context, bank),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Image.asset(
-                          bank.logo,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.account_balance, size: 48),
+          ),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              scrollDirection: Axis.horizontal,
+              itemCount: kAllBanks.length,
+              itemBuilder: (context, index) {
+                final bank = kAllBanks[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: GestureDetector(
+                    onTap: () => _showBranchSelection(context, bank),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              bank.substring(0, 1),
+                              style: TextStyle(
+                                color: Theme.of(context).textTheme.titleLarge?.color ?? Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  bank.name,
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                bank.category,
-                                style: Theme.of(context).textTheme.bodySmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: 80,
+                          child: Text(
+                            bank,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12) ?? const TextStyle(color: Colors.white, fontSize: 12),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).textTheme.bodyLarge?.color) ?? const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search bank',
+                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color) ?? const TextStyle(color: Colors.grey),
+                prefixIcon: Icon(Icons.search, color: Theme.of(context).iconTheme.color),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-              );
-            },
-          );
-        },
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              itemCount: filteredBanks.length,
+              itemBuilder: (context, index) {
+                final bank = filteredBanks[index];
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  leading: _buildBankLogo(bank),
+                  title: Text(
+                    bank,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 16) ?? const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  onTap: () => _showBranchSelection(context, bank),
+                );
+              },
+            ),
+          ),
+        ],
+          ),
+          if (_isLoading)
+            Container(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
       ),
     );
   }
+
+  Future<void> _showBranchSelection(BuildContext context, String bankName) async {
+    final branchName = await showDialog<String>(
+      context: context,
+      builder: (context) => AddBranchDialog(bankName: bankName),
+    );
+
+    if (branchName != null && context.mounted) {
+      try {
+        setState(() => _isLoading = true);
+        // Create new bank entry
+        final bank = BankEntry(
+          bankName: bankName,
+          branchName: branchName,
+        );
+        await AppDatabase.instance.insertBank(bank);
+        
+        if (context.mounted) {
+          Navigator.pop(context); // Return to previous screen
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error adding bank: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
 }
 
-class BranchSelectionSheet extends StatefulWidget {
-  final BankData bank;
-  const BranchSelectionSheet({super.key, required this.bank});
+class AddBranchDialog extends StatefulWidget {
+  final String bankName;
+  
+  const AddBranchDialog({
+    required this.bankName,
+    super.key,
+  });
 
   @override
-  State<BranchSelectionSheet> createState() => _BranchSelectionSheetState();
+  State<AddBranchDialog> createState() => _AddBranchDialogState();
 }
 
-class _BranchSelectionSheetState extends State<BranchSelectionSheet> {
+class _AddBranchDialogState extends State<AddBranchDialog> {
   final _branchController = TextEditingController();
+  String _branchName = '';
+
   @override
   void dispose() {
     _branchController.dispose();
     super.dispose();
   }
 
+  void _handleTextChanged(String value) {
+    setState(() {
+      _branchName = value.trim();
+    });
+  }
+
+  void _handleAdd() {
+    if (_branchName.isNotEmpty) {
+      Navigator.pop(context, _branchName);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: 16,
-        left: 16,
-        right: 16,
-        // Add bottom padding to account for keyboard
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return AlertDialog(
+      backgroundColor: Theme.of(context).dialogBackgroundColor,
+      title: Text(
+        'Add Branch',
+        style: Theme.of(context).textTheme.titleLarge,
       ),
-      child: Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Enter Branch Name',
-            style: Theme.of(context).textTheme.titleLarge,
+            'Bank: ${widget.bankName}',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _branchController,
-            onChanged: null,
+            onChanged: _handleTextChanged,
             autofocus: true,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.location_on),
+            style: Theme.of(context).textTheme.bodyLarge,
+            decoration: InputDecoration(
               labelText: 'Branch Name',
+              labelStyle: Theme.of(context).textTheme.bodySmall,
               hintText: 'Enter branch name',
+              hintStyle: Theme.of(context).textTheme.bodySmall,
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _branchController.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(context, _branchController.text.trim()),
-                child: const Text('Add'),
-              ),
-            ],
+            textCapitalization: TextCapitalization.words,
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('CANCEL', style: Theme.of(context).textTheme.labelLarge),
+        ),
+        TextButton(
+          onPressed: _branchName.isNotEmpty ? _handleAdd : null,
+          child: const Text('ADD'),
+        ),
+      ],
     );
   }
 }

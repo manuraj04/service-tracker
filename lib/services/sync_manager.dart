@@ -107,7 +107,7 @@ class SyncManager {
   Future<void> _handleBankChange(DocumentChange<Map<String, dynamic>> change) async {
     final data = change.doc.data()!;
     final bank = BankEntry(
-      id: data['localId'] as int,
+      id: data['localId'] as int?,
       bankName: data['bankName'] as String,
       branchName: data['branchName'] as String,
     );
@@ -118,15 +118,24 @@ class SyncManager {
         await AppDatabase.instance.updateBank(bank);
         break;
       case DocumentChangeType.removed:
-        await AppDatabase.instance.deleteBank(bank.id!);
+        if (bank.id != null) {
+          await AppDatabase.instance.deleteBank(bank.id!);
+        }
         break;
     }
   }
 
   Future<void> _handleMachineChange(DocumentChange<Map<String, dynamic>> change) async {
     final data = change.doc.data()!;
+    
+    // Skip if essential data is missing
+    if (data['bankId'] == null) {
+      print('Skipping machine change: bankId is null');
+      return;
+    }
+    
     final machine = Machine(
-      id: data['localId'] as int,
+      id: data['localId'] as int?,
       bankId: data['bankId'] as int,
       machineType: data['machineType'] as String,
       serialNumber: data['serialNumber'] as String,

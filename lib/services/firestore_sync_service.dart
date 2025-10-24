@@ -5,6 +5,19 @@ import '../models/machine.dart';
 class FirestoreSyncService {
   static final _db = FirebaseFirestore.instance;
 
+  static Future<bool> checkConnection() async {
+    try {
+      await _db.runTransaction((transaction) async {
+        // Just a lightweight query to check connection
+        await _db.collection('banks').limit(1).get();
+      });
+      return true;
+    } catch (e) {
+      print('Firebase connection check failed: $e');
+      return false;
+    }
+  }
+
   static Future<void> pushBank(BankEntry bank) async {
     await _db.collection('banks').add({
       'bankName': bank.bankName,
