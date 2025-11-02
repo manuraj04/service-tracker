@@ -17,7 +17,7 @@ This Flutter project is an offline-first Android app for service engineers to ma
 4. Get dependencies:
 
 ```powershell
-cd 'D:/dad project'
+cd 'your project location '
 flutter pub get
 ```
 
@@ -101,11 +101,3 @@ flutter build apk --release --split-per-abi
 
 - Run `flutter analyze` and `flutter doctor` if you encounter issues.
 - Use `flutter run --verbose` for verbose logs.
-
-## Next steps I can help with
-
-- Add PRAGMA foreign_keys = ON in DB init to ensure referential integrity.
-- Add unit tests for DB and providers.
-- Add AndroidManifest/Gradle snippets for Google Sign-In specific to your app id.
-
-If you want, I can add the PRAGMA change and the Android-specific manifest snippet now.
